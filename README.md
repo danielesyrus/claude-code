@@ -3,6 +3,7 @@
 # nano start.sh
 # chmod +x start.sh
 # sudo ./start.sh
+# wget -qO- https://raw.githubusercontent.com/danielesyrus/claude-code/main/install-dev-interface.sh | sudo bash
 #######################################################################
 # SCRIPT DI INSTALLAZIONE COMBINATO PER AMBIENTE WEB CLAUDE CODE
 # ---------------------------------------------------------------------
