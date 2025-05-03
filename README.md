@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# nano start.sh
+# chmod +x start.sh
+# sudo ./start.sh
 #######################################################################
 # SCRIPT DI INSTALLAZIONE COMBINATO PER AMBIENTE WEB CLAUDE CODE
 # ---------------------------------------------------------------------
