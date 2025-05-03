@@ -4,6 +4,9 @@
 # chmod +x start.sh
 # sudo ./start.sh
 # wget -qO- https://raw.githubusercontent.com/danielesyrus/claude-code/main/install-dev-interface.sh | sudo bash
+#
+# Per leggere le password del db
+# sudo cat /opt/claude-env/mysql_credentials.conf
 #######################################################################
 # SCRIPT DI INSTALLAZIONE COMBINATO PER AMBIENTE WEB CLAUDE CODE
 # ---------------------------------------------------------------------
