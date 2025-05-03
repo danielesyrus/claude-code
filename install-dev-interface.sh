@@ -2098,454 +2098,6 @@ cat > $DEV_INTERFACE_DIR/index.html << 'EOFHTML'
             }
             
             /**
-             * Apre un file nell'editor
-             * @param {string} filePath - Il percorso del file
-             */
-            function openFileInEditor(filePath) {
-                // Aggiorna il titolo dell'editor
-                const fileName = filePath.split('/').pop();
-                $('#editor-filename').html(`<i class="fas fa-file-code"></i> ${fileName}`);
-                
-                // Mostra l'editor a schermo intero
-                $('#code-editor-fullscreen').css('display', 'flex');
-                
-                // Carica il contenuto del file
-                $.ajax({
-                    url: 'file-manager.php',
-                    type: 'GET',
-                    data: {
-                        action: 'read',
-                        file: filePath
-                    },
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.error) {
-                            showNotification(response.error, 'error');
-                            return;
-                        }
-                        
-                        // Memorizza il file corrente e il contenuto originale
-                        currentFile = filePath;
-                        originalContent = response.content;
-                        
-                        // Inizializza l'editor se non è già stato fatto
-                        if (!editor) {
-                            initializeEditor();
-                        }
-                        
-                        // Imposta il contenuto dell'editor
-                        editor.setValue(response.content);
-                        editor.clearHistory();
-                        
-                        // Imposta la modalità di evidenziazione in base all'estensione del file
-                        const mode = getFileMode(fileName);
-                        editor.setOption('mode', mode);
-                        $('#editor-mode-selector').val(mode);
-                        
-                        // Aggiorna stato editor
-                        $('#editor-status').html('').removeClass('text-warning');
-                        
-                        // Mostra il pulsante sudo se il file non è scrivibile
-                        if (response.sudo_used) {
-                            $('#sudo-save').show();
-                            $('#editor-status').html('<i class="fas fa-shield-alt"></i> Modalità amministratore').addClass('text-warning');
-                        } else {
-                            $('#sudo-save').hide();
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        showNotification('Errore nel caricamento del file', 'error');
-                    }
-                });
-            }
-            
-            /**
-             * Salva il contenuto di un file
-             * @param {string} filePath - Il percorso del file
-             * @param {string} content - Il contenuto da salvare
-             * @param {boolean} [useSudo=false] - Se salvare con privilegi elevati
-             */
-            function saveFile(filePath, content, useSudo = false) {
-                $.ajax({
-                    url: 'file-manager.php',
-                    type: 'POST',
-                    data: {
-                        action: 'save',
-                        file: filePath,
-                        content: content,
-                        sudo: useSudo
-                    },
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.error) {
-                            showNotification(response.error, 'error');
-                            return;
-                        }
-                        
-                        // Aggiorna il contenuto originale
-                        originalContent = content;
-                        
-                        // Mostra notifica
-                        showNotification('File salvato con successo!');
-                        
-                        // Aggiorna stato editor
-                        $('#editor-status').html('').removeClass('text-warning');
-                        
-                        // Se è stato usato sudo, mostra il pulsante sudo
-                        if (response.sudo_used) {
-                            $('#sudo-save').show();
-                            $('#editor-status').html('<i class="fas fa-shield-alt"></i> Modalità amministratore').addClass('text-warning');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        showNotification('Errore nel salvataggio del file', 'error');
-                    }
-                });
-            }
-            
-            /**
-             * Inizializza l'editor CodeMirror
-             */
-            function initializeEditor() {
-                editor = CodeMirror(document.getElementById('editor-container'), {
-                    lineNumbers: true,
-                    mode: 'text/plain',
-                    theme: 'default',
-                    indentUnit: 4,
-                    smartIndent: true,
-                    tabSize: 4,
-                    indentWithTabs: false,
-                    lineWrapping: isEditorWordWrap,
-                    matchBrackets: true,
-                    autoCloseBrackets: true,
-                    autoCloseTags: true,
-                    foldGutter: true,
-                    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-                    styleActiveLine: true,
-                    extraKeys: {
-                        "Ctrl-Space": "autocomplete",
-                        "F11": function(cm) {
-                            cm.setOption("fullScreen", !cm.getOption("fullScreen"));
-                        },
-                        "Esc": function(cm) {
-                            if (cm.getOption("fullScreen")) cm.setOption("fullScreen", false);
-                        },
-                        "Ctrl-F": "find",
-                        "Cmd-F": "find",
-                        "Tab": function(cm) {
-                            if (cm.somethingSelected()) {
-                                cm.indentSelection("add");
-                            } else {
-                                cm.replaceSelection(Array(cm.getOption("indentUnit") + 1).join(" "), "end", "+input");
-                            }
-                        },
-                        "Shift-Tab": function(cm) {
-                            cm.indentSelection("subtract");
-                        }
-                    }
-                });
-                
-                // Gestione eventi dell'editor
-                editor.on('change', function() {
-                    // Se il contenuto è cambiato rispetto all'originale, mostra un indicatore
-                    const currentContent = editor.getValue();
-                    if (currentContent !== originalContent) {
-                        $('#editor-status').html('<i class="fas fa-circle"></i> Modificato').addClass('text-warning');
-                    } else {
-                        $('#editor-status').html('').removeClass('text-warning');
-                    }
-                });
-            }
-            
-            /**
-             * Formatta il codice nell'editor
-             */
-            function formatCode() {
-                // Implementazione specifica in base al tipo di file
-                const mode = editor.getOption('mode');
-                let formatted = false;
-                
-                switch (mode) {
-                    case 'application/javascript':
-                    case 'application/json':
-                        try {
-                            const content = editor.getValue();
-                            const jsonObj = JSON.parse(content);
-                            const formattedJson = JSON.stringify(jsonObj, null, 4);
-                            editor.setValue(formattedJson);
-                            formatted = true;
-                        } catch (e) {
-                            showNotification('Errore nella formattazione: JSON non valido', 'error');
-                        }
-                        break;
-                    case 'text/html':
-                    case 'text/xml':
-                        // Semplice indentazione per HTML/XML
-                        editor.execCommand('indentAuto');
-                        formatted = true;
-                        break;
-                    case 'text/css':
-                        // Semplice indentazione per CSS
-                        editor.execCommand('indentAuto');
-                        formatted = true;
-                        break;
-                    default:
-                        // Per tutti gli altri tipi di file, usa l'indentazione automatica
-                        editor.execCommand('indentAuto');
-                        formatted = true;
-                        break;
-                }
-                
-                if (formatted) {
-                    showNotification('Codice formattato');
-                }
-            }
-            
-            /**
-             * Determina il modo appropriato di CodeMirror in base all'estensione del file
-             * @param {string} fileName - Il nome del file
-             * @returns {string} Il modo di CodeMirror
-             */
-            function getFileMode(fileName) {
-                const ext = fileName.split('.').pop().toLowerCase();
-                
-                const modeMap = {
-                    'js': 'application/javascript',
-                    'json': 'application/json',
-                    'html': 'text/html',
-                    'htm': 'text/html',
-                    'xml': 'text/xml',
-                    'css': 'text/css',
-                    'less': 'text/css',
-                    'scss': 'text/css',
-                    'sass': 'text/css',
-                    'php': 'application/x-php',
-                    'py': 'text/x-python',
-                    'rb': 'text/x-ruby',
-                    'java': 'text/x-java',
-                    'c': 'text/x-csrc',
-                    'cpp': 'text/x-c++src',
-                    'h': 'text/x-c++hdr',
-                    'cs': 'text/x-csharp',
-                    'sql': 'text/x-sql',
-                    'md': 'text/x-markdown',
-                    'yaml': 'text/x-yaml',
-                    'yml': 'text/x-yaml',
-                    'ini': 'text/x-properties',
-                    'sh': 'text/x-shellscript',
-                    'bash': 'text/x-shellscript'
-                };
-                
-                return modeMap[ext] || 'text/plain';
-            }
-            
-            /**
-             * Esegue una ricerca di file
-             * @param {string} query - La query di ricerca
-             */
-            function searchFiles(query) {
-                $('#search-results').html('<li><i class="fas fa-spinner fa-spin"></i> Ricerca in corso...</li>');
-                
-                $.ajax({
-                    url: 'file-manager.php',
-                    type: 'GET',
-                    data: {
-                        action: 'search',
-                        query: query
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        $('#search-results').empty();
-                        
-                        if (data.error) {
-                            $('#search-results').html(`<li class="text-danger"><i class="fas fa-exclamation-circle"></i> ${data.error}</li>`);
-                            return;
-                        }
-                        
-                        if (data.length === 0) {
-                            $('#search-results').html('<li class="text-muted"><i class="fas fa-info-circle"></i> Nessun risultato trovato</li>');
-                            return;
-                        }
-                        
-                        $.each(data, function(i, file) {
-                            $('#search-results').append(`
-                                <li class="search-result" data-path="${file.path}" data-type="${file.type}">
-                                    <div>
-                                        <i class="fas fa-${file.icon}"></i> ${file.name}
-                                        <div class="search-path">${file.path}</div>
-                                    </div>
-                                </li>
-                            `);
-                        });
-                    },
-                    error: function(xhr, status, error) {
-                        $('#search-results').html(`<li class="text-danger"><i class="fas fa-exclamation-circle"></i> Errore nella ricerca: ${error}</li>`);
-                    }
-                });
-            }
-            
-            /**
-             * Ripara i permessi dei file
-             */
-            function fixPermissions() {
-                showNotification('Avvio riparazione permessi...', 'warning');
-                
-                $.ajax({
-                    url: 'file-manager.php',
-                    type: 'GET',
-                    data: {
-                        action: 'fix_permissions',
-                        dir: currentPath
-                    },
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.error) {
-                            showNotification(response.error, 'error');
-                            return;
-                        }
-                        
-                        if (response.success) {
-                            showNotification('Permessi riparati con successo');
-                            loadFileList(currentPath);
-                        } else {
-                            showNotification('Errore nella riparazione dei permessi', 'error');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        showNotification('Errore nell\'operazione di riparazione', 'error');
-                    }
-                });
-            }
-            
-            /**
-             * Pulisce i file temporanei
-             */
-            function cleanupTempFiles() {
-                showNotification('Avvio pulizia file temporanei...', 'warning');
-                
-                $.ajax({
-                    url: 'file-manager.php',
-                    type: 'GET',
-                    data: {
-                        action: 'cleanup_tmp'
-                    },
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.error) {
-                            showNotification(response.error, 'error');
-                            return;
-                        }
-                        
-                        if (response.success) {
-                            showNotification('File temporanei puliti con successo');
-                        } else {
-                            showNotification('Errore nella pulizia dei file temporanei', 'error');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        showNotification('Errore nell\'operazione di pulizia', 'error');
-                    }
-                });
-            }
-            
-            /**
-             * Carica un URL nell'iframe di preview
-             * @param {string} url - L'URL da caricare
-             */
-            function loadUrlInPreview(url) {
-                // Assicurati che l'URL abbia un protocollo
-                let formattedUrl = url;
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                    formattedUrl = 'http://' + url;
-                }
-                
-                // Aggiorna tutti gli input di indirizzo con l'URL formattato
-                $('#browser-url').val(formattedUrl);
-                $('#browser-preview-fullscreen .browser-address input').val(formattedUrl);
-                
-                // Mostra l'indicatore di caricamento
-                $('#browser-loading').show();
-                
-                // Aggiorna gli iframe sia nella vista normale che in quella a schermo intero
-                $('#browser-frame').attr('src', formattedUrl);
-                $('#browser-preview-fullscreen .browser-content').attr('src', formattedUrl);
-                
-                // Nasconde l'indicatore di caricamento quando il caricamento è completato
-                $('#browser-frame').on('load', function() {
-                    $('#browser-loading').hide();
-                });
-            }
-            
-            /**
-             * Mostra una notifica
-             * @param {string} message - Il messaggio da mostrare
-             * @param {string} [type='success'] - Il tipo di notifica: success, error, warning
-             */
-            function showNotification(message, type = 'success') {
-                const notification = $('#notification');
-                
-                // Imposta il messaggio
-                notification.text(message);
-                
-                // Imposta il tipo di notifica
-                notification.removeClass('success error warning');
-                notification.addClass(type);
-                
-                // Mostra la notifica
-                notification.fadeIn(300);
-                
-                // Nascondi la notifica dopo un po'
-                setTimeout(function() {
-                    notification.fadeOut(300);
-                }, 3000);
-            }
-        });
-    </script>
-</body>
-</html>
-EOFHTML
-
-# Sostituzione del placeholder SERVER_IP con l'IP effettivo
-sed -i "s/SERVER_IP/$CURRENT_IP/g" $DEV_INTERFACE_DIR/index.html
-
-#######################################################################
-# IMPOSTAZIONE DEI PERMESSI
-#######################################################################
-
-print_message "Impostazione dei permessi corretti"
-chown -R www-data:www-data $DEV_INTERFACE_DIR
-chmod -R 755 $DEV_INTERFACE_DIR
-
-#######################################################################
-# RIEPILOGO FINALE
-#######################################################################
-
-print_message "CONFIGURAZIONE COMPLETATA CON SUCCESSO!"
-
-echo -e "\n\033[1;32m=== INFORMAZIONI DI ACCESSO ===\033[0m"
-echo -e "\033[1mApplicazione Web:\033[0m http://$CURRENT_IP/"
-echo -e "\033[1mInterfaccia di Sviluppo:\033[0m http://$CURRENT_IP:$DEV_INTERFACE_PORT/"
-echo -e "\033[1mphpMyAdmin:\033[0m http://$CURRENT_IP:$DEV_INTERFACE_PORT/phpmyadmin/"
-
-# Carica le credenziali MySQL
-if [ -f "$CONFIG_DIR/mysql_credentials.conf" ]; then
-    source "$CONFIG_DIR/mysql_credentials.conf"
-    echo -e "\033[1mUtente MySQL:\033[0m $DB_USER"
-    echo -e "\033[1mPassword MySQL:\033[0m $DB_PASSWORD"
-else
-    echo -e "\033[1;31mATTENZIONE: File credenziali MySQL non trovato!\033[0m"
-fi
-
-echo -e "\n\033[1;32m=== UTILIZZO DI CLAUDE CODE ===\033[0m"
-echo -e "Per utilizzare Claude Code, segui questi passi:\n"
-echo -e "1. Connettiti al server via SSH"
-echo -e "2. Esegui il comando: \033[1mclaude-app\033[0m"
-echo -e "3. Utilizza Claude Code per creare la tua applicazione"
-echo -e "4. I file creati saranno visibili su: http://$CURRENT_IP/"
-echo -e "5. Puoi visualizzare e modificare i file tramite: http://$CURRENT_IP:$DEV_INTERFACE_PORT/"
-
-echo -e "\nInterfaccia di sviluppo installata con successo!"
-echo -e "Si consiglia di riavviare il server per assicurarsi che tutte le modifiche siano applicate correttamente."
              * Configura la sidebar e le sue tab
              */
             function setupSidebar() {
@@ -3183,3 +2735,453 @@ echo -e "Si consiglia di riavviare il server per assicurarsi che tutte le modifi
                     }
                 });
             }
+            
+            /**
+             * Apre un file nell'editor
+             * @param {string} filePath - Il percorso del file
+             */
+            function openFileInEditor(filePath) {
+                // Aggiorna il titolo dell'editor
+                const fileName = filePath.split('/').pop();
+                $('#editor-filename').html(`<i class="fas fa-file-code"></i> ${fileName}`);
+                
+                // Mostra l'editor a schermo intero
+                $('#code-editor-fullscreen').css('display', 'flex');
+                
+                // Carica il contenuto del file
+                $.ajax({
+                    url: 'file-manager.php',
+                    type: 'GET',
+                    data: {
+                        action: 'read',
+                        file: filePath
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.error) {
+                            showNotification(response.error, 'error');
+                            return;
+                        }
+                        
+                        // Memorizza il file corrente e il contenuto originale
+                        currentFile = filePath;
+                        originalContent = response.content;
+                        
+                        // Inizializza l'editor se non è già stato fatto
+                        if (!editor) {
+                            initializeEditor();
+                        }
+                        
+                        // Imposta il contenuto dell'editor
+                        editor.setValue(response.content);
+                        editor.clearHistory();
+                        
+                        // Imposta la modalità di evidenziazione in base all'estensione del file
+                        const mode = getFileMode(fileName);
+                        editor.setOption('mode', mode);
+                        $('#editor-mode-selector').val(mode);
+                        
+                        // Aggiorna stato editor
+                        $('#editor-status').html('').removeClass('text-warning');
+                        
+                        // Mostra il pulsante sudo se il file non è scrivibile
+                        if (response.sudo_used) {
+                            $('#sudo-save').show();
+                            $('#editor-status').html('<i class="fas fa-shield-alt"></i> Modalità amministratore').addClass('text-warning');
+                        } else {
+                            $('#sudo-save').hide();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showNotification('Errore nel caricamento del file', 'error');
+                    }
+                });
+            }
+            
+            /**
+             * Salva il contenuto di un file
+             * @param {string} filePath - Il percorso del file
+             * @param {string} content - Il contenuto da salvare
+             * @param {boolean} [useSudo=false] - Se salvare con privilegi elevati
+             */
+            function saveFile(filePath, content, useSudo = false) {
+                $.ajax({
+                    url: 'file-manager.php',
+                    type: 'POST',
+                    data: {
+                        action: 'save',
+                        file: filePath,
+                        content: content,
+                        sudo: useSudo
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.error) {
+                            showNotification(response.error, 'error');
+                            return;
+                        }
+                        
+                        // Aggiorna il contenuto originale
+                        originalContent = content;
+                        
+                        // Mostra notifica
+                        showNotification('File salvato con successo!');
+                        
+                        // Aggiorna stato editor
+                        $('#editor-status').html('').removeClass('text-warning');
+                        
+                        // Se è stato usato sudo, mostra il pulsante sudo
+                        if (response.sudo_used) {
+                            $('#sudo-save').show();
+                            $('#editor-status').html('<i class="fas fa-shield-alt"></i> Modalità amministratore').addClass('text-warning');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showNotification('Errore nel salvataggio del file', 'error');
+                    }
+                });
+            }
+            
+            /**
+             * Inizializza l'editor CodeMirror
+             */
+            function initializeEditor() {
+                editor = CodeMirror(document.getElementById('editor-container'), {
+                    lineNumbers: true,
+                    mode: 'text/plain',
+                    theme: 'default',
+                    indentUnit: 4,
+                    smartIndent: true,
+                    tabSize: 4,
+                    indentWithTabs: false,
+                    lineWrapping: isEditorWordWrap,
+                    matchBrackets: true,
+                    autoCloseBrackets: true,
+                    autoCloseTags: true,
+                    foldGutter: true,
+                    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+                    styleActiveLine: true,
+                    extraKeys: {
+                        "Ctrl-Space": "autocomplete",
+                        "F11": function(cm) {
+                            cm.setOption("fullScreen", !cm.getOption("fullScreen"));
+                        },
+                        "Esc": function(cm) {
+                            if (cm.getOption("fullScreen")) cm.setOption("fullScreen", false);
+                        },
+                        "Ctrl-F": "find",
+                        "Cmd-F": "find",
+                        "Tab": function(cm) {
+                            if (cm.somethingSelected()) {
+                                cm.indentSelection("add");
+                            } else {
+                                cm.replaceSelection(Array(cm.getOption("indentUnit") + 1).join(" "), "end", "+input");
+                            }
+                        },
+                        "Shift-Tab": function(cm) {
+                            cm.indentSelection("subtract");
+                        }
+                    }
+                });
+                
+                // Gestione eventi dell'editor
+                editor.on('change', function() {
+                    // Se il contenuto è cambiato rispetto all'originale, mostra un indicatore
+                    const currentContent = editor.getValue();
+                    if (currentContent !== originalContent) {
+                        $('#editor-status').html('<i class="fas fa-circle"></i> Modificato').addClass('text-warning');
+                    } else {
+                        $('#editor-status').html('').removeClass('text-warning');
+                    }
+                });
+            }
+            
+            /**
+             * Formatta il codice nell'editor
+             */
+            function formatCode() {
+                // Implementazione specifica in base al tipo di file
+                const mode = editor.getOption('mode');
+                let formatted = false;
+                
+                switch (mode) {
+                    case 'application/javascript':
+                    case 'application/json':
+                        try {
+                            const content = editor.getValue();
+                            const jsonObj = JSON.parse(content);
+                            const formattedJson = JSON.stringify(jsonObj, null, 4);
+                            editor.setValue(formattedJson);
+                            formatted = true;
+                        } catch (e) {
+                            showNotification('Errore nella formattazione: JSON non valido', 'error');
+                        }
+                        break;
+                    case 'text/html':
+                    case 'text/xml':
+                        // Semplice indentazione per HTML/XML
+                        editor.execCommand('indentAuto');
+                        formatted = true;
+                        break;
+                    case 'text/css':
+                        // Semplice indentazione per CSS
+                        editor.execCommand('indentAuto');
+                        formatted = true;
+                        break;
+                    default:
+                        // Per tutti gli altri tipi di file, usa l'indentazione automatica
+                        editor.execCommand('indentAuto');
+                        formatted = true;
+                        break;
+                }
+                
+                if (formatted) {
+                    showNotification('Codice formattato');
+                }
+            }
+            
+            /**
+             * Determina il modo appropriato di CodeMirror in base all'estensione del file
+             * @param {string} fileName - Il nome del file
+             * @returns {string} Il modo di CodeMirror
+             */
+            function getFileMode(fileName) {
+                const ext = fileName.split('.').pop().toLowerCase();
+                
+                const modeMap = {
+                    'js': 'application/javascript',
+                    'json': 'application/json',
+                    'html': 'text/html',
+                    'htm': 'text/html',
+                    'xml': 'text/xml',
+                    'css': 'text/css',
+                    'less': 'text/css',
+                    'scss': 'text/css',
+                    'sass': 'text/css',
+                    'php': 'application/x-php',
+                    'py': 'text/x-python',
+                    'rb': 'text/x-ruby',
+                    'java': 'text/x-java',
+                    'c': 'text/x-csrc',
+                    'cpp': 'text/x-c++src',
+                    'h': 'text/x-c++hdr',
+                    'cs': 'text/x-csharp',
+                    'sql': 'text/x-sql',
+                    'md': 'text/x-markdown',
+                    'yaml': 'text/x-yaml',
+                    'yml': 'text/x-yaml',
+                    'ini': 'text/x-properties',
+                    'sh': 'text/x-shellscript',
+                    'bash': 'text/x-shellscript'
+                };
+                
+                return modeMap[ext] || 'text/plain';
+            }
+            
+            /**
+             * Esegue una ricerca di file
+             * @param {string} query - La query di ricerca
+             */
+            function searchFiles(query) {
+                $('#search-results').html('<li><i class="fas fa-spinner fa-spin"></i> Ricerca in corso...</li>');
+                
+                $.ajax({
+                    url: 'file-manager.php',
+                    type: 'GET',
+                    data: {
+                        action: 'search',
+                        query: query
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        $('#search-results').empty();
+                        
+                        if (data.error) {
+                            $('#search-results').html(`<li class="text-danger"><i class="fas fa-exclamation-circle"></i> ${data.error}</li>`);
+                            return;
+                        }
+                        
+                        if (data.length === 0) {
+                            $('#search-results').html('<li class="text-muted"><i class="fas fa-info-circle"></i> Nessun risultato trovato</li>');
+                            return;
+                        }
+                        
+                        $.each(data, function(i, file) {
+                            $('#search-results').append(`
+                                <li class="search-result" data-path="${file.path}" data-type="${file.type}">
+                                    <div>
+                                        <i class="fas fa-${file.icon}"></i> ${file.name}
+                                        <div class="search-path">${file.path}</div>
+                                    </div>
+                                </li>
+                            `);
+                        });
+                    },
+                    error: function(xhr, status, error) {
+                        $('#search-results').html(`<li class="text-danger"><i class="fas fa-exclamation-circle"></i> Errore nella ricerca: ${error}</li>`);
+                    }
+                });
+            }
+            
+            /**
+             * Ripara i permessi dei file
+             */
+            function fixPermissions() {
+                showNotification('Avvio riparazione permessi...', 'warning');
+                
+                $.ajax({
+                    url: 'file-manager.php',
+                    type: 'GET',
+                    data: {
+                        action: 'fix_permissions',
+                        dir: currentPath
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.error) {
+                            showNotification(response.error, 'error');
+                            return;
+                        }
+                        
+                        if (response.success) {
+                            showNotification('Permessi riparati con successo');
+                            loadFileList(currentPath);
+                        } else {
+                            showNotification('Errore nella riparazione dei permessi', 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showNotification('Errore nell\'operazione di riparazione', 'error');
+                    }
+                });
+            }
+            
+            /**
+             * Pulisce i file temporanei
+             */
+            function cleanupTempFiles() {
+                showNotification('Avvio pulizia file temporanei...', 'warning');
+                
+                $.ajax({
+                    url: 'file-manager.php',
+                    type: 'GET',
+                    data: {
+                        action: 'cleanup_tmp'
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.error) {
+                            showNotification(response.error, 'error');
+                            return;
+                        }
+                        
+                        if (response.success) {
+                            showNotification('File temporanei puliti con successo');
+                        } else {
+                            showNotification('Errore nella pulizia dei file temporanei', 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showNotification('Errore nell\'operazione di pulizia', 'error');
+                    }
+                });
+            }
+            
+            /**
+             * Carica un URL nell'iframe di preview
+             * @param {string} url - L'URL da caricare
+             */
+            function loadUrlInPreview(url) {
+                // Assicurati che l'URL abbia un protocollo
+                let formattedUrl = url;
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    formattedUrl = 'http://' + url;
+                }
+                
+                // Aggiorna tutti gli input di indirizzo con l'URL formattato
+                $('#browser-url').val(formattedUrl);
+                $('#browser-preview-fullscreen .browser-address input').val(formattedUrl);
+                
+                // Mostra l'indicatore di caricamento
+                $('#browser-loading').show();
+                
+                // Aggiorna gli iframe sia nella vista normale che in quella a schermo intero
+                $('#browser-frame').attr('src', formattedUrl);
+                $('#browser-preview-fullscreen .browser-content').attr('src', formattedUrl);
+                
+                // Nasconde l'indicatore di caricamento quando il caricamento è completato
+                $('#browser-frame').on('load', function() {
+                    $('#browser-loading').hide();
+                });
+            }
+            
+            /**
+             * Mostra una notifica
+             * @param {string} message - Il messaggio da mostrare
+             * @param {string} [type='success'] - Il tipo di notifica: success, error, warning
+             */
+            function showNotification(message, type = 'success') {
+                const notification = $('#notification');
+                
+                // Imposta il messaggio
+                notification.text(message);
+                
+                // Imposta il tipo di notifica
+                notification.removeClass('success error warning');
+                notification.addClass(type);
+                
+                // Mostra la notifica
+                notification.fadeIn(300);
+                
+                // Nascondi la notifica dopo un po'
+                setTimeout(function() {
+                    notification.fadeOut(300);
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
+EOFHTML
+
+# Sostituzione del placeholder SERVER_IP con l'IP effettivo
+sed -i "s/SERVER_IP/$CURRENT_IP/g" $DEV_INTERFACE_DIR/index.html
+
+#######################################################################
+# IMPOSTAZIONE DEI PERMESSI
+#######################################################################
+
+print_message "Impostazione dei permessi corretti"
+chown -R www-data:www-data $DEV_INTERFACE_DIR
+chmod -R 755 $DEV_INTERFACE_DIR
+
+#######################################################################
+# RIEPILOGO FINALE
+#######################################################################
+
+print_message "CONFIGURAZIONE COMPLETATA CON SUCCESSO!"
+
+echo -e "\n\033[1;32m=== INFORMAZIONI DI ACCESSO ===\033[0m"
+echo -e "\033[1mApplicazione Web:\033[0m http://$CURRENT_IP/"
+echo -e "\033[1mInterfaccia di Sviluppo:\033[0m http://$CURRENT_IP:$DEV_INTERFACE_PORT/"
+echo -e "\033[1mphpMyAdmin:\033[0m http://$CURRENT_IP:$DEV_INTERFACE_PORT/phpmyadmin/"
+
+# Carica le credenziali MySQL
+if [ -f "$CONFIG_DIR/mysql_credentials.conf" ]; then
+    source "$CONFIG_DIR/mysql_credentials.conf"
+    echo -e "\033[1mUtente MySQL:\033[0m $DB_USER"
+    echo -e "\033[1mPassword MySQL:\033[0m $DB_PASSWORD"
+else
+    echo -e "\033[1;31mATTENZIONE: File credenziali MySQL non trovato!\033[0m"
+fi
+
+echo -e "\n\033[1;32m=== UTILIZZO DI CLAUDE CODE ===\033[0m"
+echo -e "Per utilizzare Claude Code, segui questi passi:\n"
+echo -e "1. Connettiti al server via SSH"
+echo -e "2. Esegui il comando: \033[1mclaude-app\033[0m"
+echo -e "3. Utilizza Claude Code per creare la tua applicazione"
+echo -e "4. I file creati saranno visibili su: http://$CURRENT_IP/"
+echo -e "5. Puoi visualizzare e modificare i file tramite: http://$CURRENT_IP:$DEV_INTERFACE_PORT/"
+
+echo -e "\nInterfaccia di sviluppo installata con successo!"
+echo -e "Si consiglia di riavviare il server per assicurarsi che tutte le modifiche siano applicate correttamente."
