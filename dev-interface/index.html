@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syrus Code IDE</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- CodeMirror (editor di codice) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/dialog/dialog.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Notification Area -->
+    <div class="notification" id="notification">
+        <span id="notification-message">File salvato con successo!</span>
+        <button class="notification-close" id="notification-close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <!-- Dialog Overlay -->
+    <div class="dialog-overlay" id="dialog-overlay">
+        <div class="dialog-box" id="dialog-content">
+            <!-- Il contenuto del dialog verrà inserito dinamicamente -->
+        </div>
+    </div>
+    
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+        <!-- Voci del menu contestuale saranno aggiunte dinamicamente -->
+    </div>
+    
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <div class="top-navbar">
+            <div class="app-logo">
+                <i class="fas fa-code"></i>
+                <span>Syrus Code IDE</span>
+            </div>
+            <div class="nav-tabs">
+                <div class="nav-tab active" data-view="explorer">
+                    <i class="fas fa-folder"></i>
+                    <span>Explorer</span>
+                </div>
+                <div class="nav-tab" data-view="search">
+                    <i class="fas fa-search"></i>
+                    <span>Cerca</span>
+                </div>
+                <div class="nav-tab" data-view="tools">
+                    <i class="fas fa-tools"></i>
+                    <span>Strumenti</span>
+                </div>
+            </div>
+            <div class="top-actions">
+                <button class="top-action-btn" id="theme-toggle" title="Cambia tema">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content-wrapper">
+            <!-- File Explorer / Left Panel -->
+            <div class="panel-container">
+                <!-- Explorer Panel -->
+                <div class="panel active" id="explorer-panel">
+                    <div class="panel-header">
+                        <div class="breadcrumb-container">
+                            <div class="path-navigator" id="path-navigator">
+                                <span class="path-segment" data-path="/">/</span>
+                            </div>
+                        </div>
+                        <div class="panel-actions">
+                            <button class="btn-icon" id="new-file-btn" title="Nuovo file">
+                                <i class="fas fa-file-plus"></i>
+                            </button>
+                            <button class="btn-icon" id="new-folder-btn" title="Nuova cartella">
+                                <i class="fas fa-folder-plus"></i>
+                            </button>
+                            <button class="btn-icon" id="refresh-files" title="Aggiorna">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button class="btn-icon" id="upload-files-btn" title="Carica file">
+                                <i class="fas fa-upload"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="new-file-form">
+                        <input type="text" class="form-control form-control-sm" id="new-file-name" placeholder="Nome del file">
+                        <button class="btn btn-sm btn-primary" id="create-file-btn">Crea</button>
+                        <button class="btn btn-sm btn-secondary" id="cancel-file-btn">Annulla</button>
+                    </div>
+                    
+                    <div class="new-folder-form">
+                        <input type="text" class="form-control form-control-sm" id="new-folder-name" placeholder="Nome della cartella">
+                        <button class="btn btn-sm btn-primary" id="create-folder-btn">Crea</button>
+                        <button class="btn btn-sm btn-secondary" id="cancel-folder-btn">Annulla</button>
+                    </div>
+                    
+                    <div class="file-explorer">
+                        <ul class="file-list" id="file-list">
+                            <li><i class="fas fa-spinner fa-spin"></i> Caricamento file...</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Search Panel -->
+                <div class="panel" id="search-panel">
+                    <div class="panel-header">
+                        <div class="search-container">
+                            <div class="search-input-wrapper">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" class="search-input" id="search-input" placeholder="Cerca file...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="search-results" id="search-results">
+                        <!-- I risultati della ricerca verranno inseriti qui -->
+                    </div>
+                </div>
+                
+                <!-- Tools Panel -->
+                <div class="panel" id="tools-panel">
+                    <div class="admin-panel">
+                        <div class="admin-section">
+                            <h4><i class="fas fa-shield-alt"></i> Manutenzione File</h4>
+                            <p>Strumenti per gestire permessi e manutenzione del file system.</p>
+                            <div class="admin-actions">
+                                <button class="btn btn-outline-primary" id="fix-permissions-btn">
+                                    <i class="fas fa-shield-alt"></i> Ripara Permessi File
+                                </button>
+                                <button class="btn btn-outline-primary" id="cleanup-tmp-btn">
+                                    <i class="fas fa-broom"></i> Pulisci File Temporanei
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="admin-section">
+                            <h4><i class="fas fa-database"></i> Gestione Database</h4>
+                            <p>Accesso rapido a phpMyAdmin e strumenti database.</p>
+                            <div class="admin-actions">
+                                <button class="btn btn-outline-primary" id="open-phpmyadmin-btn">
+                                    <i class="fas fa-database"></i> Apri phpMyAdmin
+                                </button>
+                            </div>
+                            <div class="db-credentials" id="db-credentials">
+                                <h5><i class="fas fa-key"></i> Credenziali MySQL</h5>
+                                <p>Informazioni di accesso per il database:</p>
+                                <div class="credential-item">
+                                    <div class="credential-label">Utente:</div>
+                                    <div class="credential-value" id="mysql-user">Caricamento...</div>
+                                </div>
+                                <div class="credential-item">
+                                    <div class="credential-label">Password:</div>
+                                    <div class="credential-value" id="mysql-password">Caricamento...</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="admin-section">
+                            <h4><i class="fas fa-terminal"></i> Syrus Code</h4>
+                            <p>Informazioni per utilizzare Syrus Code via terminale.</p>
+                            <div class="help-panel">
+                                <h5><i class="fas fa-info-circle"></i> Come utilizzare Syrus Code</h5>
+                                <p>Per utilizzare Syrus Code e creare applicazioni:</p>
+                                <ol>
+                                    <li>Connettiti via SSH al server</li>
+                                    <li>Esegui il comando: <code>syrus-app</code></li>
+                                    <li>I file creati appariranno nella root directory</li>
+                                </ol>
+                                <div class="info-box">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    <span>Syrus Code è disponibile solo da terminale SSH, non tramite questa interfaccia web.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Logo Syrus -->
+                <img src="https://syrusindustry.com/wp-content/themes/syrus-child/assets/images/logo-syrus-industry.png" alt="Syrus Industry" class="syrus-logo">
+            </div>
+            
+            <!-- Editor Area -->
+            <div class="editor-area">
+                <div class="editor-tabs" id="editor-tabs">
+                    <!-- Le schede dell'editor verranno inserite dinamicamente -->
+                    <div class="tab-placeholder">
+                        <i class="fas fa-code"></i> Seleziona un file per iniziare a modificarlo
+                    </div>
+                </div>
+                
+                <div class="editor-container" id="editor-container">
+                    <!-- Welcome Screen -->
+                    <div class="welcome-screen" id="welcome-screen">
+                        <div class="welcome-content">
+                            <div class="welcome-logo">
+                                <i class="fas fa-code"></i>
+                            </div>
+                            <h2>Syrus Code IDE</h2>
+                            <p>Benvenuto nell'interfaccia di sviluppo web per il tuo server.</p>
+                            <div class="welcome-actions">
+                                <div class="welcome-action">
+                                    <i class="fas fa-folder-open"></i>
+                                    <span>Esplora i file nel pannello a sinistra</span>
+                                </div>
+                                <div class="welcome-action">
+                                    <i class="fas fa-edit"></i>
+                                    <span>Modifica e salva i tuoi file</span>
+                                </div>
+                                <div class="welcome-action">
+                                    <i class="fas fa-cogs"></i>
+                                    <span>Gestisci il tuo server con gli strumenti</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Code Editor will be initialized here -->
+                    <div class="code-editor" id="code-editor" style="display: none;">
+                        <div class="editor-toolbar">
+                            <div class="editor-info">
+                                <span id="editor-filename">file.txt</span>
+                                <span class="file-path" id="editor-filepath">/path/to/file.txt</span>
+                            </div>
+                            <div class="editor-actions">
+                                <select class="form-select form-select-sm mode-selector" id="editor-mode-selector">
+                                    <option value="text/plain">Testo</option>
+                                    <option value="application/javascript">JavaScript</option>
+                                    <option value="text/html">HTML</option>
+                                    <option value="text/css">CSS</option>
+                                    <option value="application/x-php">PHP</option>
+                                    <option value="text/x-python">Python</option>
+                                    <option value="text/x-sql">SQL</option>
+                                    <option value="text/x-markdown">Markdown</option>
+                                    <option value="application/json">JSON</option>
+                                    <option value="text/x-shellscript">Shell</option>
+                                </select>
+                                <button class="btn-icon" id="toggle-word-wrap" title="A capo automatico">
+                                    <i class="fas fa-paragraph"></i>
+                                </button>
+                                <button class="btn-icon" id="find-in-code" title="Cerca">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button class="btn-icon" id="format-code" title="Formatta codice">
+                                    <i class="fas fa-indent"></i>
+                                </button>
+                                <button class="btn-icon" id="download-file" title="Scarica file">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button class="btn-icon" id="sudo-save" title="Salva con privilegi elevati">
+                                    <i class="fas fa-shield-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="editor-body">
+                            <!-- CodeMirror will be initialized here -->
+                        </div>
+                        <div class="editor-footer">
+                            <div class="editor-status">
+                                <span id="editor-status-message"></span>
+                            </div>
+                            <div class="editor-save-area">
+                                <button class="btn btn-secondary" id="discard-changes">
+                                    <i class="fas fa-undo"></i> Annulla modifiche
+                                </button>
+                                <button class="btn btn-primary" id="save-file">
+                                    <i class="fas fa-save"></i> Salva
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/search.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/dialog/dialog.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/brace-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/comment-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/indent-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/javascript-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/html-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/css-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/xml-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/comment/comment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/display/placeholder.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/scroll/simplescrollbars.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/lint/lint.min.js"></script>
+    
+    <!-- CodeMirror Language Modes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    
+    <!-- Main Application JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
